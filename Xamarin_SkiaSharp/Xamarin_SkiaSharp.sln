@@ -5,7 +5,7 @@ VisualStudioVersion = 16.0.30225.117
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SkiaSharpLearning.Android", "SkiaSharpLearning\SkiaSharpLearning.Android\SkiaSharpLearning.Android.csproj", "{57716FCF-911E-4D44-BA44-ADF8CE072631}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SkiaSharpLearning", "SkiaSharpLearning\SkiaSharpLearning\SkiaSharpLearning.csproj", "{3C972E3B-C964-476B-A011-952608224939}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SkiaSharpLearning", "SkiaSharpLearning\SkiaSharpLearning\SkiaSharpLearning.csproj", "{3C972E3B-C964-476B-A011-952608224939}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

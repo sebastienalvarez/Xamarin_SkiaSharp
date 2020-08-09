@@ -3,11 +3,13 @@ using SkiaSharp.Views.Forms;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
+using TouchTracking;
 using Xamarin.Forms;
 
 namespace SkiaSharpLearning
@@ -17,22 +19,61 @@ namespace SkiaSharpLearning
     [DesignTimeVisible(false)]
     public partial class MainPage : ContentPage
     {
+        private SKCanvas canvas;
+        private SKImageInfo info;
+        SKBitmap bitmapOrigin;
+
+        // Pour le test d'animation
+        private bool isAnimated = false;
+        private double scale = 1;
+        private double increment = 0.01;
+
+        // Pour le test de gestion des gestes sur l'écran tactile
+        bool isEffectRequired = false;
+        Dictionary<long, SKPath> inProgressPaths = new Dictionary<long, SKPath>();
+        List<SKPath> completedPaths = new List<SKPath>();
+
         public MainPage()
         {
             InitializeComponent();
+            string imageRessource = "SkiaSharpLearning.Images.SaturneSelectionnee.png";
+            Assembly assembly = GetType().GetTypeInfo().Assembly;
+            using (Stream stream = assembly.GetManifestResourceStream(imageRessource))
+            {
+                bitmapOrigin = SKBitmap.Decode(stream);
+            }
         }
 
         private void Canvas_PaintSurface(object sender, SKPaintSurfaceEventArgs e)
         {
-            SKCanvas canvas = e.Surface.Canvas;
-            SKImageInfo info = e.Info;
+            canvas = e.Surface.Canvas;
+            info = e.Info;
 
             // 1ère partie : la base
-            DrawBasics(canvas, info);
+            //DrawBasics();
+
+            // 2ème partie : les lignes et les paths associés
+            isEffectRequired = true;
+            DrawLinesAndPaths();
         }
 
+        private bool ComputeBitmapScale()
+        {
+            if(scale > 5)
+            {
+                increment = -increment;
+            }
+            if(scale < 1)
+            {
+                increment = -increment;
+            }
+            scale += increment;
+            Canvas.InvalidateSurface();
+            return isAnimated;
+        }
 
-        private void DrawBasics(SKCanvas canvas, SKImageInfo info)
+        // 1ère partie : la base
+        private void DrawBasics()
         {
             canvas.Clear();
 
@@ -83,16 +124,121 @@ namespace SkiaSharpLearning
             {
                 Color = new SKColor(255, 220, 220, 100)
             };
-            SKBitmap bitmap = null;
-            string imageRessource = "SkiaSharpLearning.Images.SaturneSelectionnee.png";
-            Assembly assembly = GetType().GetTypeInfo().Assembly;
-            using (Stream stream = assembly.GetManifestResourceStream(imageRessource))
-            {
-                bitmap = SKBitmap.Decode(stream);
-            }
-            bitmap = bitmap.Resize(new SKSizeI(bitmap.Width * 3, bitmap.Height * 3), SKFilterQuality.High);
+            SKBitmap bitmap = bitmapOrigin.Resize(new SKSizeI((int)(bitmapOrigin.Width * scale), (int)(bitmapOrigin.Height * scale)), SKFilterQuality.High);
             canvas.DrawBitmap(bitmap, 200, 200, paintTransparency);
         }
 
+        // 2ème partie : les paths et la gestion des gestes sur l'écran tactile
+        private void DrawLinesAndPaths()
+        {
+            canvas.Clear();
+            SKPath path = new SKPath();
+            path.MoveTo(info.Width / 2, info.Height / 2);
+            path.LineTo(info.Width / 2, info.Height - 150);
+            path.LineTo(200, info.Height - 150);
+            path.Close();
+
+            SKPaint strokePaint = new SKPaint
+            {
+                Color = SKColors.OrangeRed,
+                Style = SKPaintStyle.Stroke,
+                StrokeWidth = 15,
+                StrokeCap = SKStrokeCap.Butt,
+                StrokeJoin = SKStrokeJoin.Round,
+                PathEffect = SKPathEffect.CreateDash(new float[] { 45, 45 }, 0)
+
+            };
+
+            SKPaint fillPaint = new SKPaint
+            {
+                Color = SKColors.ForestGreen,
+                Style = SKPaintStyle.Fill
+            };
+
+            canvas.DrawPath(path, strokePaint);
+            canvas.DrawPath(path, fillPaint);
+
+            // Test des gestes sur l'écran tactile
+            SKPaint fingerPaint = new SKPaint
+            {
+                Color = SKColors.Red,
+                Style = SKPaintStyle.Stroke,
+                StrokeWidth = 5
+            };
+
+            foreach(var item in inProgressPaths)
+            {
+                canvas.DrawPath(item.Value, fingerPaint);
+            }
+
+
+            foreach(var item in completedPaths)
+            {
+                canvas.DrawPath(item, fingerPaint);
+            }
+
+        }
+        private void StopAnimation_Clicked(object sender, EventArgs e)
+        {
+            isAnimated = false;
+        }
+
+        private void StartAnimation_Clicked(object sender, EventArgs e)
+        {
+            isAnimated = true;
+            Device.StartTimer(TimeSpan.FromMilliseconds(16), ComputeBitmapScale);
+        }
+
+        private void TouchEffect_TouchAction(object sender, TouchActionEventArgs args)
+        {
+            if (isEffectRequired)
+            {
+                switch (args.Type)
+                {
+                    case TouchActionType.Pressed:
+                        if (!inProgressPaths.ContainsKey(args.Id))
+                        {
+                            SKPath path = new SKPath();
+                            path.MoveTo(ConvertToPixel(args.Location));
+                            inProgressPaths.Add(args.Id, path);
+                            Canvas.InvalidateSurface();
+                        }
+                        break;
+
+                    case TouchActionType.Moved:
+                        if (inProgressPaths.ContainsKey(args.Id))
+                        {
+                            SKPath path = inProgressPaths[args.Id];
+                            path.LineTo(ConvertToPixel(args.Location));
+                            Canvas.InvalidateSurface();
+                        }
+                        break;
+
+                    case TouchActionType.Released:
+                        if (inProgressPaths.ContainsKey(args.Id))
+                        {
+                            completedPaths.Add(inProgressPaths[args.Id]);
+                            inProgressPaths.Remove(args.Id);
+                            Canvas.InvalidateSurface();
+                        }
+                        break;
+
+                    case TouchActionType.Cancelled:
+                        if (inProgressPaths.ContainsKey(args.Id))
+                        {
+                            inProgressPaths.Remove(args.Id);
+                            Canvas.InvalidateSurface();
+                        }
+                        break;
+                }
+            }
+
+            SKPoint ConvertToPixel(Point pt)
+            {
+                return new SKPoint((float)(Canvas.CanvasSize.Width * pt.X / Canvas.Width),
+                                   (float)(Canvas.CanvasSize.Height * (pt.Y - TitleLabel.Height) / Canvas.Height));
+            }
+
+        }
     }
 }

@@ -4,6 +4,7 @@
              xmlns:d="http://xamarin.com/schemas/2014/forms/design"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:skia="clr-namespace:SkiaSharp.Views.Forms;assembly=SkiaSharp.Views.Forms"
+             xmlns:tt="clr-namespace:TouchTracking"
              mc:Ignorable="d"
              x:Class="SkiaSharpLearning.MainPage">
 
@@ -11,10 +12,18 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"></RowDefinition>
             <RowDefinition Height="*"></RowDefinition>
+            <RowDefinition Height="Auto"></RowDefinition>
         </Grid.RowDefinitions>
         
-        <Label Grid.Row="0" Text="INTRODUCTION A SKIASHARP" HorizontalOptions="CenterAndExpand" HorizontalTextAlignment="Center" FontSize="25" TextColor="MediumVioletRed" Margin="10"></Label>
+        <Label x:Name="TitleLabel" Grid.Row="0" Text="INTRODUCTION A SKIASHARP" HorizontalOptions="CenterAndExpand" HorizontalTextAlignment="Center" FontSize="25" TextColor="MediumVioletRed" Margin="10"></Label>
         <skia:SKCanvasView x:Name="Canvas" Grid.Row="1" PaintSurface="Canvas_PaintSurface"></skia:SKCanvasView>
+        <StackLayout Grid.Row="2" Orientation="Horizontal">
+            <Button x:Name="StartAnimation" Text="START" HorizontalOptions="CenterAndExpand"  FontSize="25" Margin="10, 10, 70, 10" Clicked="StartAnimation_Clicked"></Button>
+            <Button x:Name="StopAnimation" Text="STOP" HorizontalOptions="CenterAndExpand" FontSize="25" Margin="10, 10, 70, 10" Clicked="StopAnimation_Clicked"></Button>
+        </StackLayout>
+        <Grid.Effects>
+            <tt:TouchEffect Capture="True" TouchAction="TouchEffect_TouchAction"></tt:TouchEffect>
+        </Grid.Effects>
     </Grid>
 
 </ContentPage>
