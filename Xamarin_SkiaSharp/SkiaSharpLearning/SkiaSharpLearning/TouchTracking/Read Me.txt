@@ -6,7 +6,7 @@ Voir aussi : https://docs.microsoft.com/fr-fr/xamarin/xamarin-forms/app-fundamen
 Pour utiliser il faut dans la page xaml :
 Ajouter le namespace de l'effet : 
     xmlns:tt="clr-namespace:TouchTracking"
-Déclarer l'effet dans le container (exemplae un Grid) :
+Déclarer l'effet dans le container (exemple un Grid) :
     <Grid.Effects>
         <tt:TouchEffect Capture="True" TouchAction="TouchEffect_TouchAction"></tt:TouchEffect>
     </Grid.Effects>

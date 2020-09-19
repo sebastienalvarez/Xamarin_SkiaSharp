@@ -22,7 +22,7 @@
             <Button x:Name="StopAnimation" Text="STOP" HorizontalOptions="CenterAndExpand" FontSize="25" Margin="10, 10, 70, 10" Clicked="StopAnimation_Clicked"></Button>
         </StackLayout>
         <Grid.Effects>
-            <tt:TouchEffect Capture="True" TouchAction="TouchEffect_TouchAction"></tt:TouchEffect>
+            <tt:TouchEffect Capture="True" TouchAction="TouchEffect_TouchAction2"></tt:TouchEffect>
         </Grid.Effects>
     </Grid>
 

@@ -11,6 +11,7 @@ using System.Text;
 using System.Threading.Tasks;
 using TouchTracking;
 using Xamarin.Forms;
+using Xamarin.Forms.Shapes;
 
 namespace SkiaSharpLearning
 {
@@ -32,6 +33,13 @@ namespace SkiaSharpLearning
         bool isEffectRequired = false;
         Dictionary<long, SKPath> inProgressPaths = new Dictionary<long, SKPath>();
         List<SKPath> completedPaths = new List<SKPath>();
+        long? touchId = null;
+        SKMatrix currentMatrix = SKMatrix.CreateIdentity();
+        bool isScaling;
+        SKPoint pivotPoint;
+        SKPoint pressedLocation;
+        SKMatrix pressedMatrix;
+
 
         public MainPage()
         {
@@ -53,8 +61,11 @@ namespace SkiaSharpLearning
             //DrawBasics();
 
             // 2ème partie : les lignes et les paths associés
-            isEffectRequired = true;
-            DrawLinesAndPaths();
+            //isEffectRequired = true;
+            //DrawLinesAndPaths();
+
+            // 3ème partie : les Transforms 
+            DrawTransforms();
         }
 
         private bool ComputeBitmapScale()
@@ -178,6 +189,62 @@ namespace SkiaSharpLearning
             }
 
         }
+
+        // 3ème partie : les Transforms 
+        private void DrawTransforms()
+        {
+            SKPaint paint = new SKPaint
+            {
+                Color = SKColors.Gray,
+                Style = SKPaintStyle.Fill,
+                TextSize = 100,
+                TextAlign = SKTextAlign.Center
+            };
+
+            //canvas.RotateDegrees(-25, info.Width / 2, info.Height / 2);
+            //canvas.Scale(2);
+            //canvas.Translate(10, 10);
+            //canvas.DrawText("OMBRE", info.Width/4, info.Height/4, paint);
+            //canvas.Translate(-10, -10);
+            //paint.Color = SKColors.Bisque;
+            //canvas.DrawText("OMBRE", info.Width/4, info.Height/4, paint);
+
+
+
+            //canvas.Translate(info.Width / 2, info.Height / 2);
+            //ComputeSkewInDegrees(canvas, -35, 0);
+            //canvas.Scale(1, 1.5f);
+            //canvas.Translate(-info.Width / 2, -info.Height / 2);
+            //canvas.DrawText("OMBRE", info.Width / 2, info.Height / 2, paint);
+
+            //canvas.Translate(info.Width / 2, info.Height / 2);
+            //canvas.Scale(1, 2f/3f);
+            //ComputeSkewInDegrees(canvas, 35, 0);
+            //canvas.Translate(-info.Width / 2, -info.Height / 2);
+            //paint.Color = SKColors.Bisque;
+            //canvas.DrawText("OMBRE", info.Width / 2, info.Height / 2, paint);
+
+
+
+            SKMatrix matrix = canvas.TotalMatrix;
+            matrix.Persp1 = -0.01f;
+            matrix = matrix.PostConcat(SKMatrix.CreateTranslation(info.Width / 2, info.Height / 2));
+            //matrix = matrix.PostConcat(SKMatrix.CreateRotationDegrees(10, info.Width / 2, info.Height / 2));
+            //matrix = matrix.PostConcat(SKMatrix.CreateScale(1, 2));
+            canvas.SetMatrix(matrix);
+            canvas.DrawText("Texte", 0, 0, paint);
+
+            //canvas.Clear();
+            //canvas.SetMatrix(currentMatrix);
+            //canvas.DrawBitmap(bitmapOrigin, 0, 0);
+        }
+
+        private void ComputeSkewInDegrees(SKCanvas canvas, double xDegrees, double yDegrees)
+        {
+            canvas.Skew((float)Math.Tan(Math.PI*xDegrees/180), (float)Math.Tan(Math.PI * yDegrees / 180));
+        }
+
+
         private void StopAnimation_Clicked(object sender, EventArgs e)
         {
             isAnimated = false;
@@ -187,6 +254,76 @@ namespace SkiaSharpLearning
         {
             isAnimated = true;
             Device.StartTimer(TimeSpan.FromMilliseconds(16), ComputeBitmapScale);
+        }
+
+        private void TouchEffect_TouchAction2(object sender, TouchActionEventArgs args)
+        {
+            // Convert Xamarin.Forms point to pixels
+            Point pt = args.Location;
+            SKPoint point = ConvertToPixel(pt);
+            switch (args.Type)
+            {
+                case TouchActionType.Pressed:
+                    // Track only one finger
+                    if (touchId.HasValue)
+                        return;
+
+                    // Check if the finger is within the boundaries of the bitmap
+                    SKRect rect = new SKRect(0, 0, bitmapOrigin.Width, bitmapOrigin.Height);
+                    rect = currentMatrix.MapRect(rect);
+                    if (!rect.Contains(point))
+                        return;
+
+                    // First assume there will be no scaling
+                    isScaling = false;
+
+                    // If touch is outside interior ellipse, make this a scaling operation
+                    if (Math.Pow((point.X - rect.MidX) / (rect.Width / 2), 2) +
+                        Math.Pow((point.Y - rect.MidY) / (rect.Height / 2), 2) > 1)
+                    {
+                        isScaling = true;
+                        float xPivot = point.X < rect.MidX ? rect.Right : rect.Left;
+                        float yPivot = point.Y < rect.MidY ? rect.Bottom : rect.Top;
+                        pivotPoint = new SKPoint(xPivot, yPivot);
+                    }
+
+                    // Common for either pan or scale
+                    touchId = args.Id;
+                    pressedLocation = point;
+                    pressedMatrix = currentMatrix;
+                    break;
+
+                case TouchActionType.Moved:
+                    if (!touchId.HasValue || args.Id != touchId.Value)
+                        return;
+
+                    SKMatrix matrix = SKMatrix.CreateIdentity();
+
+                    // Translating
+                    if (!isScaling)
+                    {
+                        SKPoint delta = point - pressedLocation;
+                        matrix = SKMatrix.CreateTranslation(delta.X, delta.Y);
+                    }
+                    // Scaling
+                    else
+                    {
+                        float scaleX = (point.X - pivotPoint.X) / (pressedLocation.X - pivotPoint.X);
+                        float scaleY = (point.Y - pivotPoint.Y) / (pressedLocation.Y - pivotPoint.Y);
+                        matrix = SKMatrix.CreateScale(scaleX, scaleY, pivotPoint.X, pivotPoint.Y);
+                    }
+
+                    // Concatenate the matrices
+                    matrix = matrix.PreConcat(pressedMatrix);
+                    currentMatrix = matrix;
+                    Canvas.InvalidateSurface();
+                    break;
+
+                case TouchActionType.Released:
+                case TouchActionType.Cancelled:
+                    touchId = null;
+                    break;
+            }
         }
 
         private void TouchEffect_TouchAction(object sender, TouchActionEventArgs args)
@@ -232,13 +369,13 @@ namespace SkiaSharpLearning
                         break;
                 }
             }
-
-            SKPoint ConvertToPixel(Point pt)
-            {
-                return new SKPoint((float)(Canvas.CanvasSize.Width * pt.X / Canvas.Width),
-                                   (float)(Canvas.CanvasSize.Height * (pt.Y - TitleLabel.Height) / Canvas.Height));
-            }
-
         }
+
+        SKPoint ConvertToPixel(Point pt)
+        {
+            return new SKPoint((float)(Canvas.CanvasSize.Width * pt.X / Canvas.Width),
+                               (float)(Canvas.CanvasSize.Height * (pt.Y - TitleLabel.Height) / Canvas.Height));
+        }
+
     }
 }
